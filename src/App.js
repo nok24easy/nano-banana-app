@@ -10,9 +10,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('builder'); 
   const fileInputRef = useRef(null);
   
-  // API Key & Model State
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-pro'); 
+  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash'); 
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -42,7 +41,6 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
 
-  // --- Database of Options ---
   const options = {
     ratios: [
       { label: "1:1 Square", value: "--ar 1:1" },
@@ -102,15 +100,13 @@ export default function App() {
       { name: "Silver", hex: "#C0C0C0" },
     ],
     aiModels: [
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Most Stable)' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Fast)' },
-      { id: 'gemini-1.5-pro-002', name: 'Gemini 1.5 Pro 002 (New)' },
-      { id: 'gemini-1.5-flash-002', name: 'Gemini 1.5 Flash 002 (New)' },
-      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Recommended)' },
+      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Experimental (New!)' },
+      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash-8B (Fast)' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (High Quality)' },
     ]
   };
 
-  // Moved generatePrompt INSIDE useEffect to fix "missing dependency" warning
   useEffect(() => {
     const clean = (text) => text ? text.split(' (')[0] : '';
 
@@ -275,13 +271,14 @@ export default function App() {
   const copyToClipboard = () => {
     if (!generatedPrompt) return;
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(generatedPrompt).then(showSuccess).catch(useFallback);
+      navigator.clipboard.writeText(generatedPrompt).then(showSuccess).catch(executeFallback);
     } else {
-      useFallback();
+      executeFallback();
     }
   };
 
-  const useFallback = () => {
+  // FIX: Renamed from useFallback to executeFallback
+  const executeFallback = () => {
     const textArea = document.createElement("textarea");
     textArea.value = generatedPrompt;
     textArea.style.position = "fixed";
