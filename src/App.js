@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Copy, Trash2, Camera, Sun, Layout, Layers, XCircle, 
-  Image as ImageIcon, Wand2, Type, Palette, Monitor, 
-  User, Zap, Box, Upload, ScanEye, Sparkles, ChevronDown, ChevronUp, Mountain,
+  Copy, Camera, XCircle, 
+  Image as ImageIcon, Wand2, Type, Monitor, 
+  Box, Upload, ScanEye, Sparkles, ChevronDown, ChevronUp, Mountain,
   Pipette, Key, ExternalLink, AlertCircle, Cpu
 } from 'lucide-react';
 
@@ -12,38 +12,27 @@ export default function App() {
   
   // API Key & Model State
   const [apiKey, setApiKey] = useState('');
-  // Set default to 1.5 Flash (most commonly available) but provide 2.0 as option
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash'); 
+  const [selectedModel, setSelectedModel] = useState('gemini-1.5-pro'); 
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   
   const [formData, setFormData] = useState({
     aspectRatio: '--ar 1:1',
     artType: 'Realistic (สมจริง/ภาพถ่าย)',
-    
-    // Subject Logic
     subjectType: 'Person (คน)', 
     subjectDetail: '',
-    
-    // People Specifics
     shotType: 'Portrait (Close-up)',
     action: '',
-    
-    // Visuals & Environment
     background: '', 
     lighting: 'Soft Light (แสงนุ่ม)',
     camera: '85mm Lens (เลนส์ถ่ายคนสวย)',
     composition: 'Center (จัดกึ่งกลาง)',
     colorTone: 'Vibrant (สดใส)',
-    
-    // Text Content & Colors
     headtext: '',
     headtextColor: '',
     subtext: '',
     subtextColor: '',
     detailtext: '',
     detailtextColor: '',
-    
-    // Details
     texture: '8K Resolution',
     negative: 'text, watermark, blurry, low quality, distorted, bad anatomy, ugly',
   });
@@ -112,16 +101,61 @@ export default function App() {
       { name: "Orange", hex: "#F97316" },
       { name: "Silver", hex: "#C0C0C0" },
     ],
-    // Updated Gemini Models List - Including 2.0 and 1.5 variants
     aiModels: [
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Recommended)' },
-      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Experimental (New!)' },
-      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash-8B (Fast)' },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (High Quality)' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (Most Stable)' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Fast)' },
+      { id: 'gemini-1.5-pro-002', name: 'Gemini 1.5 Pro 002 (New)' },
+      { id: 'gemini-1.5-flash-002', name: 'Gemini 1.5 Flash 002 (New)' },
+      { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B' },
     ]
   };
 
+  // Moved generatePrompt INSIDE useEffect to fix "missing dependency" warning
   useEffect(() => {
+    const clean = (text) => text ? text.split(' (')[0] : '';
+
+    const generatePrompt = () => {
+      let parts = [];
+      parts.push(clean(formData.artType));
+      if (formData.subjectType.includes("Person")) {
+        parts.push(`${clean(formData.shotType)} of a ${formData.subjectDetail || "person"}`);
+        if (formData.action) parts.push(`action: ${formData.action}`);
+      } else {
+        parts.push(formData.subjectDetail || "subject");
+        if (formData.shotType && !formData.subjectType.includes("Scenery")) {
+           parts.push(clean(formData.shotType));
+        }
+      }
+      if (formData.background) parts.push(`Background: ${clean(formData.background)}`); 
+      parts.push(clean(formData.lighting));
+      parts.push(clean(formData.camera));
+      parts.push(clean(formData.composition));
+      parts.push(clean(formData.colorTone));
+  
+      let textSpecs = [];
+      const formatTextPrompt = (role, text, color) => {
+          let p = [];
+          if (text) p.push(`"${text}"`);
+          if (color) p.push(`in ${color}`);
+          if (p.length > 0) return `${role} ${p.join(' ')}`;
+          return null;
+      };
+      const head = formatTextPrompt("Headline", formData.headtext, formData.headtextColor);
+      if (head) textSpecs.push(head);
+      const sub = formatTextPrompt("Subtext", formData.subtext, formData.subtextColor);
+      if (sub) textSpecs.push(sub);
+      const detail = formatTextPrompt("Detail text", formData.detailtext, formData.detailtextColor);
+      if (detail) textSpecs.push(detail);
+      if (textSpecs.length > 0) parts.push(`Text Design: [${textSpecs.join(', ')}]`);
+  
+      parts.push(clean(formData.texture));
+      let prompt = parts.filter(Boolean).join(', ');
+      if (formData.negative) prompt += ` --no ${formData.negative}`;
+      prompt += ` ${formData.aspectRatio}`;
+  
+      setGeneratedPrompt(prompt);
+    };
+
     generatePrompt();
   }, [formData]);
 
@@ -132,50 +166,6 @@ export default function App() {
 
   const handleSelect = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const clean = (text) => text ? text.split(' (')[0] : '';
-
-  const generatePrompt = () => {
-    let parts = [];
-    parts.push(clean(formData.artType));
-    if (formData.subjectType.includes("Person")) {
-      parts.push(`${clean(formData.shotType)} of a ${formData.subjectDetail || "person"}`);
-      if (formData.action) parts.push(`action: ${formData.action}`);
-    } else {
-      parts.push(formData.subjectDetail || "subject");
-      if (formData.shotType && !formData.subjectType.includes("Scenery")) {
-         parts.push(clean(formData.shotType));
-      }
-    }
-    if (formData.background) parts.push(`Background: ${clean(formData.background)}`); 
-    parts.push(clean(formData.lighting));
-    parts.push(clean(formData.camera));
-    parts.push(clean(formData.composition));
-    parts.push(clean(formData.colorTone));
-
-    let textSpecs = [];
-    const formatTextPrompt = (role, text, color) => {
-        let p = [];
-        if (text) p.push(`"${text}"`);
-        if (color) p.push(`in ${color}`);
-        if (p.length > 0) return `${role} ${p.join(' ')}`;
-        return null;
-    };
-    const head = formatTextPrompt("Headline", formData.headtext, formData.headtextColor);
-    if (head) textSpecs.push(head);
-    const sub = formatTextPrompt("Subtext", formData.subtext, formData.subtextColor);
-    if (sub) textSpecs.push(sub);
-    const detail = formatTextPrompt("Detail text", formData.detailtext, formData.detailtextColor);
-    if (detail) textSpecs.push(detail);
-    if (textSpecs.length > 0) parts.push(`Text Design: [${textSpecs.join(', ')}]`);
-
-    parts.push(clean(formData.texture));
-    let prompt = parts.filter(Boolean).join(', ');
-    if (formData.negative) prompt += ` --no ${formData.negative}`;
-    prompt += ` ${formData.aspectRatio}`;
-
-    setGeneratedPrompt(prompt);
   };
 
   const handleImageUpload = (e) => {
@@ -191,7 +181,6 @@ export default function App() {
     }
   };
 
-  // --- REAL AI ANALYSIS LOGIC ---
   const analyzeImageReal = async () => {
     if (!apiKey) {
       alert("กรุณาใส่ API Key ก่อนครับ (หรือใช้ปุ่ม Simulation หากไม่มี Key)");
@@ -203,7 +192,6 @@ export default function App() {
     setAnalysisError('');
 
     try {
-      // Prepare image data (remove header)
       const base64Data = uploadedImage.split(',')[1];
       
       const payload = {
@@ -215,7 +203,6 @@ export default function App() {
         }]
       };
 
-      // USE SELECTED MODEL FROM STATE
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -224,14 +211,13 @@ export default function App() {
 
       const data = await response.json();
       
-      // Better Error Handling
       if (data.error) {
         console.error("Gemini API Error:", data.error);
         throw new Error(data.error.message);
       }
 
       if (!data.candidates || !data.candidates[0].content) {
-         throw new Error("AI did not return any content. Please try a different model or image.");
+         throw new Error("AI did not return any content.");
       }
 
       const textResponse = data.candidates[0].content.parts[0].text;
@@ -262,7 +248,7 @@ export default function App() {
 
     } catch (err) {
       console.error(err);
-      setAnalysisError(`Error (${selectedModel}): ${err.message}. กรุณาลองเปลี่ยน Model เป็นตัวอื่นดูนะครับ`);
+      setAnalysisError(`Error (${selectedModel}): ${err.message}. ลองเปลี่ยน Model ดูนะครับ`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -282,7 +268,7 @@ export default function App() {
         shotType: 'Close-up (ใบหน้า/หัวไหล่)'
       }));
       setActiveTab('builder');
-      alert("⚠️ นี่คือโหมดจำลอง (Simulation) ข้อมูลนี้เป็นค่าสุ่ม ไม่ใช่จากการสแกนจริง");
+      alert("⚠️ นี่คือโหมดจำลอง (Simulation)");
     }, 1500);
   };
 
@@ -323,7 +309,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 font-sans text-slate-200 pb-32">
-      {/* Navbar */}
       <nav className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -353,16 +338,10 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
-        
         {activeTab === 'builder' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* --- LEFT: CONTROLS --- */}
             <div className="lg:col-span-8 space-y-6">
-              
-              {/* 1. Core Concept */}
               <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400"><Box size={20}/></div>
@@ -418,7 +397,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 2. Visuals */}
               <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
                  <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-orange-500/10 rounded-lg text-orange-400"><Camera size={20}/></div>
@@ -446,7 +424,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 3. Text & Colors */}
               <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -497,7 +474,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 4. Quality (4K/8K Options) */}
                <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
                  <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-green-500/10 rounded-lg text-green-400"><Monitor size={20}/></div>
@@ -519,10 +495,8 @@ export default function App() {
                    ))}
                 </div>
                </div>
-
             </div>
 
-            {/* --- RIGHT: PREVIEW --- */}
             <div className="lg:col-span-4 space-y-6">
               <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 sticky top-24 shadow-2xl">
                  <div className="flex justify-between items-center mb-4">
@@ -557,10 +531,8 @@ export default function App() {
                  </div>
               </div>
             </div>
-
           </div>
         ) : (
-          /* Image to Prompt Tab */
           <div className="max-w-3xl mx-auto">
             <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 text-center space-y-6 shadow-2xl">
               <div className="w-16 h-16 bg-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -569,7 +541,6 @@ export default function App() {
               <h2 className="text-2xl font-bold text-white">แยก Prompt จากรูปภาพ</h2>
               <p className="text-slate-400 mb-6">อัปโหลดภาพตัวอย่าง เพื่อให้ AI ช่วยวิเคราะห์ Style และ Subject</p>
 
-              {/* API Key Input Section with Model Selector */}
               <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 mb-6 max-w-lg mx-auto">
                  <button 
                    onClick={() => setShowApiKeyInput(!showApiKeyInput)}
@@ -590,7 +561,6 @@ export default function App() {
                         />
                       </div>
                       
-                      {/* NEW: Model Selector */}
                       <div>
                         <label className="text-[10px] text-slate-400 mb-1 block flex items-center gap-1"><Cpu size={10}/> Select AI Model (Change if error occurs)</label>
                         <select 
@@ -648,7 +618,6 @@ export default function App() {
 
               {uploadedImage && !isAnalyzing && (
                  <div className="flex flex-col md:flex-row gap-3 justify-center">
-                   {/* Real Analysis Button */}
                    <button 
                     onClick={analyzeImageReal}
                     className={`px-6 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 justify-center ${apiKey ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-700 text-slate-400 cursor-not-allowed'}`}
@@ -657,7 +626,6 @@ export default function App() {
                      <Sparkles size={18}/> Analyze Real (ใช้ AI จริง)
                    </button>
 
-                   {/* Mock Button */}
                    <button 
                     onClick={analyzeImageMock}
                     className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-6 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 justify-center"
@@ -669,13 +637,11 @@ export default function App() {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
 }
 
-// Helper Components
 function SelectButton({ active, onClick, label, sub }) {
   return (
     <button
@@ -769,7 +735,6 @@ function FormInput({ label, name, value, onChange, placeholder, suggestions, onS
   );
 }
 
-// Updated Color Component with Picker
 function ColorRow({ label, textName, colorName, textValue, colorValue, onChange, placeholder, presets, onSelectColor }) {
   const [showCustom, setShowCustom] = useState(false);
 
@@ -787,7 +752,6 @@ function ColorRow({ label, textName, colorName, textValue, colorValue, onChange,
          />
       </div>
       
-      {/* Color Swatches + Picker */}
       <div className="md:col-span-1">
          <label className="text-xs font-bold text-slate-400 mb-1 block">Color ({colorValue || 'None'})</label>
          <div className="bg-slate-900 border border-slate-600 rounded-xl p-2 flex flex-wrap gap-1.5 justify-center md:justify-start">
@@ -801,7 +765,6 @@ function ColorRow({ label, textName, colorName, textValue, colorValue, onChange,
               />
             ))}
             
-            {/* Custom Picker Trigger */}
             <div className="relative group">
               <label 
                 className={`w-6 h-6 rounded-full border-2 border-slate-500 flex items-center justify-center cursor-pointer hover:border-white bg-slate-800 ${showCustom ? 'border-white' : ''}`}
